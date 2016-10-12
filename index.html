@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>*New</title>
+  <style type="text/css" media="screen">
+    body {
+        overflow: hidden;
+    }
+    
+    #editor { 
+        margin: 0;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+  </style>
+</head>
+<body>
+
+<pre id="editor"></pre>
+    
+<!-- load ace -->
+<script src="src/ace.js"></script>
+<!-- load ace settings_menu extension -->
+<script src="src/ext-settings_menu.js"></script>
+<script>
+    var editor = ace.edit("editor");
+	var path = null;
+	var deltas = [];
+	editor.on("input",function(){document.title='*'+(path||'New')});
+	editor.on("change",function(){deltas.push(arguments[0]);});
+	setInterval(
+		function()
+		{
+			if(deltas)
+			{
+				processDeltas(deltas);
+				deltas=[];
+			}
+		},1000);
+	var fs =require("fs");
+	var app = require('electron').remote; 
+	var dialog = app.dialog;
+    ace.require('ace/ext/settings_menu').init(editor);
+    editor.setTheme("ace/theme/twilight");
+    editor.session.setMode("ace/mode/html");
+	editor.commands.addCommands([{
+		name: "showSettingsMenu",
+		bindKey: {win: "Ctrl-q", mac: "Command-q"},
+		exec: function(editor) {
+			editor.showSettingsMenu();
+		},
+		readOnly: true
+	},
+	{
+		name: "chooseFile",
+		bindKey: {win: "Ctrl-o", mac: "Command-o"},
+		exec: function(editor) {
+			e=editor;
+			x=document.getElementById("file");
+			x.onchange=function(event){
+					//alert(234);
+					var fileList = x.files;
+					var xhr= new XMLHttpRequest();
+					xhr.open("GET",URL.createObjectURL(fileList[0]));
+					xhr.onreadystatechange=function()
+							{
+								if(xhr.status==200 && xhr.readyState==4)
+								{
+									//alert(123);
+									editor.session.setMode("ace/mode/"+fileList[0].type.split("/")[1]);
+									editor.setValue(xhr.responseText,1);
+									path = fileList[0].path;
+									setTimeout(function(){document.title=path;},50);
+								}
+							};
+					xhr.send();
+					event.preventDefault();
+					return false;
+				};
+			x.click();
+			
+			//editor.showSettingsMenu();
+		},
+		readOnly: true
+	},
+	{
+		name: "saveFile",
+		bindKey: {win: "Ctrl-s", mac: "Command-s"},
+		exec: function(editor) {
+			if(path)
+			{
+				fs.writeFile(path,editor.getValue(),function(err){console.log(err);});
+				document.title=path;
+			}
+			else
+			{
+				dialog.showSaveDialog(function (fileName) {
+				   if (fileName === undefined){
+						alert("Choose file name");
+						return;
+				   }
+				   // fileName is a string that contains the path and filename created in the save file dialog.  
+				   fs.writeFile(fileName, editor.getValue(), function (err) {
+					   path=fileName;
+					   if(err){
+						   //alert("An error ocurred creating the file "+ err.message)
+					   }		
+					   //alert("The file has been succesfully saved");
+					   document.title=path;
+				   });
+				}); 
+			}
+			
+			//editor.showSettingsMenu();
+		},
+		readOnly: true
+	}
+	]);
+	
+</script>
+<input type="file" id="file" multiple=false style="display:none"/>
+<!--script src="./show_own_source.js"></script-->
+</body>
+</html>
